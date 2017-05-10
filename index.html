@@ -1,0 +1,868 @@
+<meta charset="utf-8">
+<html>
+  <head>
+    <style>
+      rect.bordered {
+        stroke: #E6E6E6;
+        stroke-width:2px;
+      }
+
+      text.mono {
+        font-size: 9pt;
+        font-family: Consolas, courier;
+        fill: #aaa;
+      }
+
+      text.axis-workweek {
+        fill: #000;
+      }
+
+      text.axis-worktime {
+        fill: #000;
+      }
+
+      .line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+#intro h1{
+  color: blue;
+}
+#intro h2{
+  color: #2F4F4F;
+}
+h1{
+  color: blue;
+}
+
+    </style>
+
+
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7/leaflet.css" />
+    <script src="http://d3js.org/d3.v3.min.js"></script>  
+        <!--<script src="https://d3js.org/d3.v4.min.js"></script>-->
+        <script src="http://cdn.leafletjs.com/leaflet-0.7/leaflet.js"></script>
+    <script src="http://d3js.org/d3.v4.js"></script>
+    
+
+  </head>
+  <body>
+    <div id="intro">
+      <h1>New York City Taxi</h1>
+      <h2>Abhishek Manoj Kumar</h2>
+      <h3>Dataset Attributes</h3>
+      <ul>
+        <li>Date and time: (Quantitative) States the date and time at which the cab was booked.</li>
+        <li>Latitude and Longitude: (Quantitative) Specifies the exact location of pickup and drop-off.</li>
+        <li>Passenger: (Quantitative) specifies the number of passengers.</li>
+        <li>Trip distance: (Quantitative) distance travelled by the passengers.</li>
+        <li>Fare amount: (Quantitative) Amount charged for the particular trip.</li>
+        <li>Tip amount: (Quantitative) Tip given by the customer.</li>
+      </ul>
+      <h3>Questions</h3>
+      <ol>
+        <li>How many cabs are booked based on hours and days of the week i.e. are there certain times with high cab usage then others</li>
+        <li>What cab services are most used based on part of the city i.e. is there a relation between the cab service and parts of New York.</li>
+        <li>Does the distance effect people’s choice of cab service i.e. certain cab services might be cheaper for longer distances and certain for shorter distances which can have an impact on the cab service chosen.</li>
+        <li>What are the trends observed in tips given to cab drivers i.e. are certain times and days of the week observe better tips than the rest of the week.</li>
+        <li>Does time have an impact on passenger count? I.e. when do people travel alone and in groups.</li>
+      </ol>
+    </div>
+    <h1>Designs</h1>
+    <div id="chart"></div>
+    <div id="map" style="float:left; width: 800px; height: 600px" ></div>
+    <div id="scatterPlot"></div>
+    <div id="tipchart"></div>
+    <div id="linechart1"></div>
+     
+
+        
+    
+
+    <script type="text/javascript">
+
+   globaldata =[]
+
+    function heatmap(data, mapplot){
+
+      //http://bl.ocks.org/tjdecke/5558084
+      // console.log(mapplot)
+
+      const margin = { top: 50, right: 0, bottom: 100, left: 30 },
+          width = 800 - margin.left - margin.right,
+          height = 430 - margin.top - margin.bottom,
+          gridSize = Math.floor(width / 24),
+          legendElementWidth = gridSize*2,
+          buckets = 9,
+   
+
+          colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"] // alternatively colorbrewer.YlGnBu[9]
+         // var days =[]
+          var hour = []
+          var frequency = []
+
+          data.map(function(d){
+             
+              hour.push(d.Hours)
+              frequency.push(d.Freq)
+
+          })
+         
+           datasets = [data];
+
+            days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+          times = [ "00","1" , "2" , "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"];
+    
+
+      const svg = d3.select("#chart").append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      const dayLabels = svg.selectAll(".dayLabel")
+          .data(days)
+          .enter().append("text")
+            .text(function (d) { return d; })
+            .attr("x", 0)
+            .attr("y", (d, i) => i * gridSize)
+            .style("text-anchor", "end")
+            .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+            
+
+      const timeLabels = svg.selectAll(".timeLabel")
+          .data(times)
+          .enter().append("text")
+            .text((d) => d)
+            .attr("x", (d, i) => i * gridSize)
+            .attr("y", 0)
+            .style("text-anchor", "middle")
+            .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+           
+
+
+      const heatmapChart = function(data) {
+          const colorScale = d3.scaleQuantile()
+            .domain([0, buckets - 1, d3.max(data, (d) => d[0].Freq)])
+            .range(colors);
+            
+          const cards = svg.selectAll(".hour")
+              .data(data, (d) => d[0].day +':'+ hour);
+
+          cards.append("title");
+
+         
+            var datenumber = new Date();
+
+          cards.enter().append("rect")
+              .attr("x", function (d){ return (d[0].Hours ) * gridSize})         
+              .attr("y",  function (d){  return (d[0].day-1) * gridSize
+                  
+                              
+                })    
+              .attr("rx", 4)
+              .attr("ry", 4)
+              .attr("class", "hour bordered")
+              .attr("width", gridSize)
+              .attr("height", gridSize)
+              .style("fill", (d) => colorScale(d[0].Freq))
+              .on("click", function(d) {
+                hour = d[0].Hours 
+                draw_map(mapplot, hour)
+                console.log(hour)
+                //mapplot.map(function (k){ if (k[0].Hours == hour) { console.log (k[0].Hours) }})
+                //console.log(d[0].Hours)
+                })
+            .merge(cards)
+              .transition()
+              .duration(1000)
+               .style("fill", (d) => colorScale(d[0].Freq));
+             
+
+          cards.select("title").text((d) => d[0].Freq);
+
+          cards.exit().remove();
+
+          const legend = svg.selectAll(".legend")
+              .data([0].concat(colorScale.quantiles()), (d) => d);
+
+          const legend_g = legend.enter().append("g")
+              .attr("class", "legend");
+
+          legend_g.append("rect")
+            .attr("x", (d, i) => legendElementWidth * i)
+            .attr("y", height)
+            .attr("width", legendElementWidth)
+            .attr("height", gridSize / 2)
+            .style("fill", (d, i) => colors[i]);
+
+          legend_g.append("text")
+            .attr("class", "mono")
+            .text((d) => "≥ " + Math.round(d))
+            .attr("x", (d, i) => legendElementWidth * i)
+            .attr("y", height + gridSize);
+
+          legend.exit().remove();
+
+      };
+
+      heatmapChart(datasets[0]);
+
+      
+
+    }
+
+/// Making map
+
+
+var map = L.map('map').setView([40.7128,-74.0059], 11);
+ mapLink =
+            '<a href="http://openstreetmap.org">OpenStreetMap</a>';
+    L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; ' + mapLink + ' Contributors',
+                id: 'mapbox.light',
+                maxZoom: 15,
+            }).addTo(map);
+
+
+   
+    map._initPathRoot()
+
+    
+   
+
+            
+
+function draw_map(mapdata, hour)
+{
+  //http://bl.ocks.org/d3noob/9267535
+  elements=[]
+  d3.select("#map").selectAll(svg).remove()
+  /*
+  //console.log(hour) 
+
+
+if (hour == 24)
+{
+  mapdata.map(function(d){
+    elements.push({Hours : d[0].Hours ,pickup_latitude : d[0].pickup_latitude, pickup_longitude : d[0].pickup_longitude, Cab: d[0].Cab })
+  })
+
+}*/
+ // if (hour != 24) {
+  mapdata.map(function(d){
+    if (d[0].Hours == hour)
+    {
+      //console.log("anothercondition")
+      elements.push({Hours : d[0].Hours ,pickup_latitude : d[0].pickup_latitude, pickup_longitude : d[0].pickup_longitude, Cab: d[0].Cab })
+
+    }
+  })
+
+  //console.log(elements)
+  //}
+  
+
+
+ //console.log(elements)
+  mapdata = elements
+
+
+ var svg = d3.select("#map").select("svg"),
+            g = svg.append("g");
+
+
+var latlongVal = []
+        var latlongValue = []
+        var collectionVal;
+        var latlongvalueObject = mapdata.map( function( coord ){ 
+            //var values = coord.latlong.split(",")
+              var v1 = parseFloat(coord.pickup_latitude)
+              //console.log(v1)
+              var v2 = parseFloat(coord.pickup_longitude)
+              //var freq = coord.freq;
+              //console.log(coord[0].Hours)
+              var Hours = coord.Hours;
+              var Cabs = coord.Cab
+              latlongVal.push({
+                "objects":[{
+                    "circle":{"coordinates":[v2, v1]}
+                }],
+                "Hour": Hours,
+                "Cabs" : Cabs,
+               
+              })
+            
+        });
+        
+       
+        //console.log(latlongVal)
+        latlongVal.map(function (d){
+                   // console.log(d.objects[0].circle.coordinates)
+                   d.LatLng = new L.LatLng(d.objects[0].circle.coordinates[1],
+                   d.objects[0].circle.coordinates)
+              // })
+           })
+
+          var feature =  g.selectAll("circle")
+                    .data(latlongVal)
+                    .enter().append("circle")
+                    //.style("stroke", "black")
+                    .style("opacity", 0.2)
+                    .attr("fill", function(d) {  if (d.Cabs == "yellow") 
+                                { return "yellow"} else return "green"} )
+                    .attr("r",  2)
+                    .classed("highlight", false)
+                    
+                    map.on("viewreset", update);
+                    update();
+
+                    function update() {
+                        feature.attr("transform",
+                                    function(d,i) {
+                                        return "translate("+
+                                            map.latLngToLayerPoint(d.LatLng).x +","+ 
+                                            map.latLngToLayerPoint(d.LatLng).y +")";
+                                       
+                                    }
+                        )}
+
+
+
+}
+
+
+
+
+
+function createScatterPlot(data){
+
+  //http://bl.ocks.org/weiglemc/6185069
+ 
+  var margin = {top: 20, right: 20, bottom: 110, left: 50},
+                margin2 = {top: 430, right: 20, bottom: 30, left: 40},
+                width = 800 - margin.left - margin.right,
+                height = 500 - margin.top - margin.bottom,
+                height2 = 500 - margin2.top - margin2.bottom;
+
+        
+
+        var x = d3.scaleLinear().range([0, width]),
+                x2 = d3.scaleLinear().range([0, width]),
+                y = d3.scaleLinear().range([height, 0]),
+                y2 = d3.scaleLinear().range([height2, 0]);
+
+        var xAxis = d3.axisBottom(x),
+                xAxis2 = d3.axisBottom(x2),
+                yAxis = y;
+
+        
+        
+        var svg = d3.select("#scatterPlot").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+
+
+        var svgs = svg.append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        
+        x.domain([0,240]);
+        y.domain([0, 500]);
+        
+        var color  = d3.scaleLinear()
+        .domain(["yellow", "green"])
+        .range(["#ffff00" ,"#008000"]);
+
+        
+// append scatter plot to main chart area
+        var cir = svgs.append("g");
+        cir.attr("clip-path", "url(#clip)");
+        cir.selectAll("dot")
+                .data(data)
+                .enter().append("circle")
+                .attr('class', 'dot')
+                .attr("r",4)
+                
+                .attr("cx", function(d) { return x(d[0].trip_distance); })
+                .attr("cy", function(d) { return y(d[0].fare_amount); })
+                .attr("fill",function(d) { 
+                    if (d[0].Cab == "yellow"){
+                        
+                        return "yellow";
+                    }
+                    if (d[0].Cab == "green") {
+                        
+                        return "green"
+                    }
+                  
+                })
+        svgs.append("g")
+                .attr("class", "axis axis--x")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis);
+
+        svgs.append("g")
+                .attr("class", "axis axis--y")
+                
+                .call(d3.axisLeft(y));
+
+        svgs.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left)
+                .attr("x",0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Fair Amount");
+
+
+        svg.append("text")
+                .attr("transform", "translate(" + (width/2) + " ," + (height + margin.top + 40) + ")")             
+                   .style("text-anchor", "middle")
+                .text("Trip Distance (Miles)");
+}
+
+
+function linechart(data) {
+
+  //https://bl.ocks.org/d3noob/4db972df5d7efc7d611255d1cc6f3c4f
+
+
+days_to = 1
+elements1 = []
+data.map(function(d){
+   if(d[0].day == days_to)
+    {
+      elements1.push([{ day : d[0].Hours, group : d[0].group, single : d[0].single }])
+    }
+  })
+
+data = elements1
+
+
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 600 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+
+
+
+var x = d3.scaleLinear().range([0, width]);
+var y = d3.scaleLinear().range([height, 0]);
+
+
+var valueline = d3.line()
+    .x(function(d) {  return x(d.Hours); })
+    .y(function(d) { return y(d.group); });
+
+
+var valueline2 = d3.line()
+    .x(function(d) { return x(d.Hours); })
+    .y(function(d) { return y(d.single); });
+
+var svg = d3.select("#linechart1").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+
+  
+  data.forEach(function(d) {
+      d.Hours = (d[0].day);
+      d.group = d[0].group;
+      d.single = d[0].single;
+  });
+
+  //console.log(data)
+
+ 
+  // Scale the range of the data
+  // hard code the scale, the d3.extent function was not getting the min and max properlly
+
+  x.domain([0,23])
+  
+  y.domain([0, d3.max(data, function(d) {
+	  return Math.max( d.group, d.single); })]);
+
+  
+  svg.append("path")
+      .data([data])
+      .attr("class", "line")
+      .style("stroke", "#A569BD")
+      .attr("d", valueline);
+
+  
+  svg.append("path")
+      .data([data])
+      .attr("class", "line")
+      .style("stroke", "red")
+      .attr("d", valueline2);
+
+  
+  svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      
+      .call(d3.axisBottom(x));
+
+  
+  svg.append("g")
+      .call(d3.axisLeft(y).tickFormat(d3.formatPrefix(".0",1e3)));
+
+
+       svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left)
+                .attr("x",0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Frequency (Group & single)");
+svg.append("text")
+                .attr("transform", "translate(" + (width/2) + " ," + (height + margin.top +10) + ")")             
+                   .style("text-anchor", "middle")
+                .text("Hours");
+
+
+var colorscale =  d3.scaleOrdinal().range(["#A569BD", "red"])
+
+var legends = ["group", "single"]
+
+var lineLegend = svg.selectAll("svg").data(legends)
+    .enter().append("g")
+    .attr("class","lineLegend")
+    .attr("transform", function (d,i) {
+            "translate(" + width + "," + (i*20)+")";
+        });
+
+lineLegend.append("text").text(function (d) {return d;})
+    .attr("transform", "translate(15,9)")
+    .attr("width", 10).attr("height", 10)//.attr("x", 5); //align texts with boxes
+    .attr("x", function(d, i) {
+                return i*60; 
+                });
+
+lineLegend.append("rect")
+    .attr("fill", function (d, i) { return colorscale(d)
+      //if (d = "single"){return "green";} else return "red";
+         })
+    .attr("width", 10).attr("height", 10)//.attr("x", 5);
+    .attr("x", function(d, i) {
+                return i*60; 
+                });                
+                
+
+}
+
+
+function defaultlinechart(day) {
+
+  d3.select("#linechart1").selectAll("svg").remove();
+
+elements1 = []
+  data = globaldata
+  //console.log(data)
+
+  data.map(function (d){
+    if(d[0].day == day)
+    {
+      elements1.push([{ day : d[0].Hours, group : d[0].group, single : d[0].single }])
+    }
+  })
+  
+  data = elements1
+  //console.log(data)
+ 
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 600 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+
+
+
+var x = d3.scaleLinear().range([0, width]);
+var y = d3.scaleLinear().range([height, 0]);
+
+
+var valueline = d3.line()
+    .x(function(d) {  return x(d.Hours); })
+    .y(function(d) { return y(d.group); });
+
+
+var valueline2 = d3.line()
+    .x(function(d) { return x(d.Hours); })
+    .y(function(d) { return y(d.single); });
+
+var svg = d3.select("#linechart1").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+
+  
+  data.forEach(function(d) {
+    //console.log(d)
+      d.Hours = (d[0].day);
+      d.group = d[0].group;
+      d.single = d[0].single;
+  });
+
+ 
+  // Scale the range of the data
+  // hard code the scale, the d3.extent function was not getting the min and max properlly
+
+  x.domain([0,23])
+  
+  y.domain([0, d3.max(data, function(d) {
+	  return Math.max( d.group, d.single); })]);
+
+  
+  svg.append("path")
+      .data([data])
+      .attr("class", "line")
+      .style("stroke", "#A569BD")
+      .attr("d", valueline);
+
+  
+  svg.append("path")
+      .data([data])
+      .attr("class", "line")
+      .style("stroke", "red")
+      .attr("d", valueline2);
+
+  
+  svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      
+      .call(d3.axisBottom(x));
+
+  
+  svg.append("g")
+  .call(d3.axisLeft(y).tickFormat(d3.formatPrefix(".0",1e3)));
+      
+
+      
+       svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left)
+                .attr("x",0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Frequency (Group & single)");
+svg.append("text")
+                .attr("transform", "translate(" + (width/2) + " ," + (height + margin.top +10) + ")")             
+                   .style("text-anchor", "middle")
+                .text("Hours");
+                
+
+var colorscale =  d3.scaleOrdinal().range(["#A569BD", "red"])
+
+var legends = ["group", "single"]
+
+var lineLegend = svg.selectAll("svg").data(legends)
+    .enter().append("g")
+    .attr("class","lineLegend")
+    .attr("transform", function (d,i) {
+            "translate(" + width + "," + (i*20)+")";
+        });
+
+lineLegend.append("text").text(function (d) {return d;})
+    .attr("transform", "translate(15,9)")
+    .attr("width", 10).attr("height", 10)//.attr("x", 5); //align texts with boxes
+    .attr("x", function(d, i) {
+                return i*60; 
+                });
+
+lineLegend.append("rect")
+    .attr("fill", function (d, i) { return colorscale(d)
+      //if (d = "single"){return "green";} else return "red";
+         })
+    .attr("width", 10).attr("height", 10)//.attr("x", 5);
+    .attr("x", function(d, i) {
+                return i*60; 
+                });
+
+
+}
+
+    function tipdata(data){
+       
+    
+
+      const margin = { top: 50, right: 0, bottom: 100, left: 30 },
+          width = 800 - margin.left - margin.right,
+          height = 430 - margin.top - margin.bottom,
+          gridSize = Math.floor(width / 24),
+          legendElementWidth = gridSize*2,
+          buckets = 9,
+   
+
+          colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"] // alternatively colorbrewer.YlGnBu[9]
+         
+          var hour = []
+          var frequency = []
+
+          data.map(function(d){
+            
+              hour.push(d.Hour)
+              frequency.push(d.x)
+
+          })
+          
+           datasets = [data];
+
+            days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+          times = [ "00","1" , "2" , "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"];
+   
+
+      const svg = d3.select("#tipchart").append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      const dayLabels = svg.selectAll(".dayLabel")
+          .data(days)
+          .enter().append("text")
+            .text(function (d) { return d; })
+            .attr("x", 0)
+            .attr("y", (d, i) => i * gridSize)
+            .style("text-anchor", "end")
+            .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+            
+
+      const timeLabels = svg.selectAll(".timeLabel")
+          .data(times)
+          .enter().append("text")
+            .text((d) => d)
+            .attr("x", (d, i) => i * gridSize)
+            .attr("y", 0)
+            .style("text-anchor", "middle")
+            .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+           
+
+
+      const heatmapChart = function(data) {
+          const colorScale = d3.scaleQuantile()
+            .domain([0, buckets - 1, d3.max(data, (d) => d[0].x)])
+            .range(colors);
+            
+          const cards = svg.selectAll(".hour")
+              .data(data, (d) => d[0].day +':'+ hour);
+
+          cards.append("title");
+
+         
+            var datenumber = new Date();
+
+          cards.enter().append("rect")
+              .attr("x", function (d){ return (d[0].Hour ) * gridSize})         
+              .attr("y",  function (d){  return (d[0].Day-1) * gridSize
+                  
+                              
+                })    
+              .attr("rx", 4)
+              .attr("ry", 4)
+              .attr("class", "hour bordered")
+              .attr("width", gridSize)
+              .attr("height", gridSize)
+              .style("fill", colors[0])
+              .on("click", function(d) {
+                day = d[0].Day 
+                defaultlinechart(day)
+                //draw_map(mapplot, hour)
+                
+              })
+            .merge(cards)
+              .transition()
+              .duration(1000)
+              .style("fill", (d) => colorScale(d[0].x));
+
+          cards.select("title").text((d) => d[0].x);
+
+          cards.exit().remove();
+
+          const legend = svg.selectAll(".legend")
+              .data([0].concat(colorScale.quantiles()), (d) => d);
+
+          const legend_g = legend.enter().append("g")
+              .attr("class", "legend");
+
+          legend_g.append("rect")
+            .attr("x", (d, i) => legendElementWidth * i)
+            .attr("y", height)
+            .attr("width", legendElementWidth)
+            .attr("height", gridSize / 2)
+            .style("fill", (d, i) => colors[i]);
+
+          legend_g.append("text")
+            .attr("class", "mono")
+            .text((d) => "≥ " + Math.round(d))
+            .attr("x", (d, i) => legendElementWidth * i)
+            .attr("y", height + gridSize);
+
+          legend.exit().remove();
+
+      };
+
+      heatmapChart(datasets[0]);
+
+      const datasetpicker = d3.select("#dataset-picker")
+        .selectAll(".dataset-button")
+        .data(datasets);
+
+      datasetpicker.enter()
+        .append("input")
+        .attr("value", (d) => "Dataset " + d)
+        .attr("type", "button")
+        .attr("class", "dataset-button")
+        .on("click", (d) => heatmapChart(d));
+
+    }
+
+
+
+function processData(errors, scatterplot, plotmap, heatmap1, linechartdata, tipchartdata) {
+  var w = 580;
+  var h = 400;
+
+  // just use the main US projection
+  
+
+globaldata = linechartdata
+  createScatterPlot(scatterplot);
+  draw_map(plotmap, "05")
+   heatmap(heatmap1, plotmap)
+   linechart(globaldata)
+   tipdata(tipchartdata)
+
+
+
+}
+
+
+d3.queue()
+  .defer(d3.json, "https://gist.githubusercontent.com/abhi080194/0564d60fd2934c4c98bd671689d1fbb4/raw/8b47de9ca037f486d405504ffdbd06015e4b6a39/scatterPlotFairDistance.json")
+   .defer(d3.json,"https://gist.githubusercontent.com/abhi080194/c6b06cfaca628c9eca107107cce56112/raw/c107ee26a061f6b0d1abac28fb06b2b3a345fda3/mapdataall.json")
+   .defer(d3.json, "https://gist.githubusercontent.com/abhi080194/2199eba1cbe76d03d0a7b6a9ffdbf587/raw/4b6015cbb12b79103d6debe2bd88761d92929918/HeatmapDataRideCount.json")
+   .defer(d3.json, "https://gist.githubusercontent.com/abhi080194/5881b6ccad0e326bb74540633b4735e1/raw/350c772a9f885a3f631039684988986c73d63d7d/linechart.json")
+   .defer(d3.json , "https://gist.githubusercontent.com/abhi080194/47b2e5094610e9d8c1cb2b8bce9ed756/raw/30e4151b9dd7340f6194e8ff3f3332e19a0928e7/HeatMapTip.json")
+   .await(processData)
+
+
+
+
+
+
+    </script>
+
+<script type="text/javascript">
+
+</script>
+
+
+  </body>
+</html>
